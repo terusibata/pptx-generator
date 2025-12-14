@@ -10,8 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from pptx import Presentation
-from pptx.enum.shapes import MSO_SHAPE_TYPE, PP_PLACEHOLDER
-from pptx.util import Emu, Inches
+from pptx.enum.shapes import PP_PLACEHOLDER
 
 from app.schemas import (
     LayoutMeta,

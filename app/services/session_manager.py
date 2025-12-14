@@ -14,8 +14,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.schemas import SlideDefinition
-
 
 class SessionState(BaseModel):
     """セッション状態"""

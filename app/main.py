@@ -7,9 +7,9 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse
 from pydantic_settings import BaseSettings
 
 
@@ -199,7 +199,7 @@ async def delete_template(template_id: str):
 # =============================================================================
 
 @app.post("/api/generate")
-async def generate_pptx(data: dict[str, Any], background_tasks: BackgroundTasks):
+async def generate_pptx(data: dict[str, Any]):
     """
     PPTXを生成
     

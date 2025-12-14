@@ -4,8 +4,6 @@ PowerPoint生成サービス
 """
 from __future__ import annotations
 
-import copy
-import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -16,7 +14,7 @@ from pptx.enum.chart import XL_CHART_TYPE
 from pptx.enum.dml import MSO_THEME_COLOR
 from pptx.enum.shapes import PP_PLACEHOLDER
 from pptx.enum.text import PP_ALIGN
-from pptx.util import Inches, Pt
+from pptx.util import Pt
 
 from app.schemas import (
     BulletContent,
