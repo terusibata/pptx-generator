@@ -5,7 +5,6 @@ WORKDIR /app
 # システム依存パッケージのインストール
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libreoffice \
-    poppler-utils \
     fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/*
 

@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import fitz  # PyMuPDF
 from pydantic import BaseModel, Field
 
 
@@ -275,40 +276,32 @@ class PreviewGenerator:
     ) -> list[Path]:
         """
         PDFからサムネイル画像を生成
-        
-        pdftoppmを使用
+
+        PyMuPDFを使用
         """
         output_dir.mkdir(parents=True, exist_ok=True)
-        
+        thumbnails: list[Path] = []
+
         try:
-            # DPIを計算（幅400pxの場合、約150DPI）
-            dpi = max(72, min(300, int(width * 150 / 400)))
-            
-            result = subprocess.run(
-                [
-                    "pdftoppm",
-                    "-png",
-                    "-r", str(dpi),
-                    str(pdf_path),
-                    str(output_dir / "slide"),
-                ],
-                capture_output=True,
-                timeout=120,
-            )
-            
-            # 生成されたファイルを収集
-            thumbnails = sorted(output_dir.glob("slide-*.png"))
-            
-            # ファイル名を正規化（slide-1.png → slide_1.png）
-            normalized = []
-            for thumb in thumbnails:
-                new_name = thumb.name.replace("-", "_")
-                new_path = thumb.parent / new_name
-                if new_path != thumb:
-                    thumb.rename(new_path)
-                normalized.append(new_path)
-            
-            return normalized
+            doc = fitz.open(pdf_path)
+
+            for page_num in range(len(doc)):
+                page = doc[page_num]
+
+                # ズーム倍率を計算（指定幅に合わせる）
+                zoom = width / page.rect.width
+                mat = fitz.Matrix(zoom, zoom)
+
+                # ページをレンダリング
+                pix = page.get_pixmap(matrix=mat)
+
+                # 保存
+                output_file = output_dir / f"slide_{page_num + 1}.png"
+                pix.save(output_file)
+                thumbnails.append(output_file)
+
+            doc.close()
+            return thumbnails
         except Exception:
             return []
     
