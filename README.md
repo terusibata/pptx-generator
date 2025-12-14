@@ -29,7 +29,7 @@ pip install -e .
 
 # 追加依存（プレビュー生成用）
 # Ubuntu/Debian
-sudo apt-get install libreoffice poppler-utils
+sudo apt-get install libreoffice
 
 # 起動
 uvicorn app.main:app --reload
