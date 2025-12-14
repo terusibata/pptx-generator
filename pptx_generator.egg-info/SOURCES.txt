@@ -1,0 +1,15 @@
+README.md
+pyproject.toml
+app/__init__.py
+app/main.py
+app/schemas.py
+app/services/__init__.py
+app/services/pptx_generator.py
+app/services/session_manager.py
+app/services/template_analyzer.py
+app/services/template_manager.py
+pptx_generator.egg-info/PKG-INFO
+pptx_generator.egg-info/SOURCES.txt
+pptx_generator.egg-info/dependency_links.txt
+pptx_generator.egg-info/requires.txt
+pptx_generator.egg-info/top_level.txt
