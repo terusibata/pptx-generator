@@ -12,18 +12,22 @@ from pptx.chart.data import CategoryChartData
 from pptx.dml.color import RGBColor
 from pptx.enum.chart import XL_CHART_TYPE
 from pptx.enum.dml import MSO_THEME_COLOR
-from pptx.enum.shapes import PP_PLACEHOLDER
+from pptx.enum.shapes import PP_PLACEHOLDER, MSO_SHAPE
 from pptx.enum.text import PP_ALIGN
-from pptx.util import Pt
+from pptx.util import Pt, Inches
 
 from app.schemas import (
     BulletContent,
     ChartContent,
     ChartType,
     ContentType,
+    FillStyle,
     ImageContent,
+    LineStyle,
     ParagraphContent,
     PlaceholderType,
+    ShapeContent,
+    ShapeType,
     SlideContent,
     SlideDefinition,
     TableContent,
@@ -57,6 +61,29 @@ CHART_TYPE_MAP: dict[ChartType, int] = {
     ChartType.PIE: XL_CHART_TYPE.PIE,
     ChartType.DOUGHNUT: XL_CHART_TYPE.DOUGHNUT,
     ChartType.AREA: XL_CHART_TYPE.AREA,
+}
+
+SHAPE_TYPE_MAP: dict[ShapeType, int] = {
+    ShapeType.RECTANGLE: MSO_SHAPE.RECTANGLE,
+    ShapeType.ROUNDED_RECTANGLE: MSO_SHAPE.ROUNDED_RECTANGLE,
+    ShapeType.CIRCLE: MSO_SHAPE.OVAL,
+    ShapeType.ELLIPSE: MSO_SHAPE.OVAL,
+    ShapeType.TRIANGLE: MSO_SHAPE.ISOSCELES_TRIANGLE,
+    ShapeType.DIAMOND: MSO_SHAPE.DIAMOND,
+    ShapeType.PENTAGON: MSO_SHAPE.PENTAGON,
+    ShapeType.HEXAGON: MSO_SHAPE.HEXAGON,
+    ShapeType.OCTAGON: MSO_SHAPE.OCTAGON,
+    ShapeType.STAR_5: MSO_SHAPE.STAR_5_POINT,
+    ShapeType.STAR_6: MSO_SHAPE.STAR_6_POINT,
+    ShapeType.ARROW_RIGHT: MSO_SHAPE.RIGHT_ARROW,
+    ShapeType.ARROW_LEFT: MSO_SHAPE.LEFT_ARROW,
+    ShapeType.ARROW_UP: MSO_SHAPE.UP_ARROW,
+    ShapeType.ARROW_DOWN: MSO_SHAPE.DOWN_ARROW,
+    ShapeType.CALLOUT_RECTANGULAR: MSO_SHAPE.RECTANGULAR_CALLOUT,
+    ShapeType.CALLOUT_ROUNDED: MSO_SHAPE.ROUNDED_RECTANGULAR_CALLOUT,
+    ShapeType.CLOUD: MSO_SHAPE.CLOUD,
+    ShapeType.HEART: MSO_SHAPE.HEART,
+    ShapeType.LIGHTNING_BOLT: MSO_SHAPE.LIGHTNING_BOLT,
 }
 
 THEME_COLOR_MAP: dict[str, int] = {
@@ -367,11 +394,11 @@ def _insert_image(
 ) -> None:
     """画像コンテンツを挿入"""
     image_path = Path(content.source)
-    
+
     if not image_path.exists():
         # URL の場合は後で対応（ここではスキップ）
         return
-    
+
     slide.shapes.add_picture(
         str(image_path),
         placeholder.left,
@@ -379,6 +406,61 @@ def _insert_image(
         placeholder.width,
         placeholder.height,
     )
+
+
+def _insert_shape(
+    slide: "Slide",
+    content: ShapeContent,
+) -> None:
+    """図形コンテンツを挿入"""
+    # 図形タイプを取得
+    shape_type = SHAPE_TYPE_MAP.get(content.shape_type, MSO_SHAPE.RECTANGLE)
+
+    # 図形を追加
+    shape = slide.shapes.add_shape(
+        shape_type,
+        Inches(content.left),
+        Inches(content.top),
+        Inches(content.width),
+        Inches(content.height),
+    )
+
+    # テキストを追加
+    if content.text and hasattr(shape, "text_frame"):
+        text_frame = shape.text_frame
+        text_frame.clear()
+        p = text_frame.paragraphs[0]
+        run = p.add_run()
+        run.text = content.text
+
+        # テキストスタイルを適用
+        if content.text_style:
+            _apply_text_style(run, content.text_style)
+
+    # 塗りつぶしスタイルを適用
+    if content.fill:
+        if content.fill.no_fill:
+            shape.fill.background()
+        elif content.fill.solid_color:
+            shape.fill.solid()
+            shape.fill.fore_color.rgb = _parse_rgb_color(content.fill.solid_color)
+        elif content.fill.theme_color and content.fill.theme_color in THEME_COLOR_MAP:
+            shape.fill.solid()
+            shape.fill.fore_color.theme_color = THEME_COLOR_MAP[content.fill.theme_color]
+
+    # 線スタイルを適用
+    if content.line:
+        if content.line.no_line:
+            shape.line.fill.background()
+        else:
+            if content.line.color:
+                shape.line.color.rgb = _parse_rgb_color(content.line.color)
+            if content.line.width:
+                shape.line.width = Pt(content.line.width)
+
+    # 回転を適用
+    if content.rotation:
+        shape.rotation = content.rotation
 
 
 # =============================================================================
@@ -466,45 +548,50 @@ class PptxGenerator:
     ) -> None:
         """
         プレースホルダーにコンテンツを挿入
-        
+
         Args:
             slide: スライド
             placeholder_key: プレースホルダーのキー（名前、インデックス、タイプ）
             content: 挿入するコンテンツ
         """
+        # 図形コンテンツは特別扱い（プレースホルダー不要）
+        if isinstance(content, ShapeContent):
+            _insert_shape(slide, content)
+            return
+
         # プレースホルダーを検索
         placeholder = self._resolve_placeholder(slide, placeholder_key)
-        
+
         if placeholder is None:
             self.warnings.append(f"Placeholder not found: {placeholder_key}")
             return
-        
+
         if not hasattr(placeholder, "text_frame"):
             self.warnings.append(f"Placeholder has no text frame: {placeholder_key}")
             return
-        
+
         text_frame = placeholder.text_frame
-        
+
         # コンテンツタイプに応じて挿入
         if isinstance(content, str):
             _insert_simple_text(text_frame, content)
-        
+
         elif isinstance(content, list):
             # 文字列のリストは箇条書きとして扱う
             _insert_simple_bullets(text_frame, content)
-        
+
         elif isinstance(content, TextContent):
             _insert_text_content(text_frame, content)
-        
+
         elif isinstance(content, BulletContent):
             _insert_bullet_content(text_frame, content)
-        
+
         elif isinstance(content, TableContent):
             _insert_table(slide, placeholder, content)
-        
+
         elif isinstance(content, ChartContent):
             _insert_chart(slide, placeholder, content)
-        
+
         elif isinstance(content, ImageContent):
             _insert_image(slide, placeholder, content)
     
@@ -632,7 +719,7 @@ def _normalize_contents(
     AIからのコンテンツをスキーマに正規化
     """
     normalized = {}
-    
+
     for key, value in contents.items():
         if isinstance(value, str):
             normalized[key] = value
@@ -662,6 +749,8 @@ def _normalize_contents(
                 normalized[key] = ChartContent(**value)
             elif content_type == "image":
                 normalized[key] = ImageContent(**value)
+            elif content_type == "shape":
+                normalized[key] = ShapeContent(**value)
             else:
                 # typeがない場合は paragraphs の有無で判定
                 if "paragraphs" in value:
@@ -669,5 +758,5 @@ def _normalize_contents(
                 else:
                     # 単純なkey-valueとして処理
                     normalized[key] = str(value)
-    
+
     return normalized

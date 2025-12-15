@@ -34,6 +34,7 @@ class ContentType(str, Enum):
     IMAGE = "image"
     TABLE = "table"
     CHART = "chart"
+    SHAPE = "shape"
 
 
 class ChartType(str, Enum):
@@ -44,6 +45,30 @@ class ChartType(str, Enum):
     PIE = "pie"
     DOUGHNUT = "doughnut"
     AREA = "area"
+
+
+class ShapeType(str, Enum):
+    """図形の種類"""
+    RECTANGLE = "rectangle"
+    ROUNDED_RECTANGLE = "rounded_rectangle"
+    CIRCLE = "circle"
+    ELLIPSE = "ellipse"
+    TRIANGLE = "triangle"
+    DIAMOND = "diamond"
+    PENTAGON = "pentagon"
+    HEXAGON = "hexagon"
+    OCTAGON = "octagon"
+    STAR_5 = "star_5"
+    STAR_6 = "star_6"
+    ARROW_RIGHT = "arrow_right"
+    ARROW_LEFT = "arrow_left"
+    ARROW_UP = "arrow_up"
+    ARROW_DOWN = "arrow_down"
+    CALLOUT_RECTANGULAR = "callout_rectangular"
+    CALLOUT_ROUNDED = "callout_rounded"
+    CLOUD = "cloud"
+    HEART = "heart"
+    LIGHTNING_BOLT = "lightning_bolt"
 
 
 # =============================================================================
@@ -188,8 +213,37 @@ class ChartContent(BaseModel):
     show_legend: bool = Field(True, description="凡例を表示するか")
 
 
+class FillStyle(BaseModel):
+    """図形の塗りつぶしスタイル"""
+    solid_color: str | None = Field(None, description="単色塗りつぶし（RGB hex）")
+    theme_color: str | None = Field(None, description="テーマカラー名")
+    no_fill: bool = Field(False, description="塗りつぶしなし")
+
+
+class LineStyle(BaseModel):
+    """図形の線スタイル"""
+    color: str | None = Field(None, description="線の色（RGB hex）")
+    width: float | None = Field(None, description="線の幅（pt）")
+    no_line: bool = Field(False, description="線なし")
+
+
+class ShapeContent(BaseModel):
+    """図形コンテンツ"""
+    type: ContentType = ContentType.SHAPE
+    shape_type: ShapeType = Field(..., description="図形の種類")
+    left: float = Field(..., description="左位置（インチ）")
+    top: float = Field(..., description="上位置（インチ）")
+    width: float = Field(..., description="幅（インチ）")
+    height: float = Field(..., description="高さ（インチ）")
+    text: str | None = Field(None, description="図形内のテキスト")
+    text_style: TextStyle | None = Field(None, description="テキストスタイル")
+    fill: FillStyle | None = Field(None, description="塗りつぶしスタイル")
+    line: LineStyle | None = Field(None, description="線スタイル")
+    rotation: float | None = Field(None, description="回転角度（度）")
+
+
 # コンテンツの Union 型
-SlideContent = TextContent | BulletContent | ImageContent | TableContent | ChartContent
+SlideContent = TextContent | BulletContent | ImageContent | TableContent | ChartContent | ShapeContent
 
 
 class PlaceholderContent(BaseModel):
