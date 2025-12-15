@@ -11,23 +11,28 @@ from pptx import Presentation
 from pptx.chart.data import CategoryChartData
 from pptx.dml.color import RGBColor
 from pptx.enum.chart import XL_CHART_TYPE
-from pptx.enum.dml import MSO_THEME_COLOR
-from pptx.enum.shapes import PP_PLACEHOLDER
+from pptx.enum.dml import MSO_THEME_COLOR, MSO_LINE_DASH_STYLE
+from pptx.enum.shapes import PP_PLACEHOLDER, MSO_SHAPE, MSO_CONNECTOR
 from pptx.enum.text import PP_ALIGN
-from pptx.util import Pt
+from pptx.util import Pt, Inches
 
 from app.schemas import (
     BulletContent,
     ChartContent,
     ChartType,
+    ConnectorContent,
     ContentType,
     ImageContent,
     ParagraphContent,
     PlaceholderType,
+    ShapeContent,
+    ShapeStyle,
+    ShapeType,
     SlideContent,
     SlideDefinition,
     TableContent,
     TemplateMeta,
+    TextBoxContent,
     TextContent,
     TextStyle,
 )
@@ -70,6 +75,51 @@ THEME_COLOR_MAP: dict[str, int] = {
     "ACCENT_4": MSO_THEME_COLOR.ACCENT_4,
     "ACCENT_5": MSO_THEME_COLOR.ACCENT_5,
     "ACCENT_6": MSO_THEME_COLOR.ACCENT_6,
+}
+
+SHAPE_TYPE_MAP: dict[ShapeType, int] = {
+    ShapeType.RECTANGLE: MSO_SHAPE.RECTANGLE,
+    ShapeType.ROUNDED_RECTANGLE: MSO_SHAPE.ROUNDED_RECTANGLE,
+    ShapeType.OVAL: MSO_SHAPE.OVAL,
+    ShapeType.TRIANGLE: MSO_SHAPE.ISOSCELES_TRIANGLE,
+    ShapeType.RIGHT_TRIANGLE: MSO_SHAPE.RIGHT_TRIANGLE,
+    ShapeType.DIAMOND: MSO_SHAPE.DIAMOND,
+    ShapeType.PENTAGON: MSO_SHAPE.PENTAGON,
+    ShapeType.HEXAGON: MSO_SHAPE.HEXAGON,
+    ShapeType.ARROW_RIGHT: MSO_SHAPE.RIGHT_ARROW,
+    ShapeType.ARROW_LEFT: MSO_SHAPE.LEFT_ARROW,
+    ShapeType.ARROW_UP: MSO_SHAPE.UP_ARROW,
+    ShapeType.ARROW_DOWN: MSO_SHAPE.DOWN_ARROW,
+    ShapeType.CHEVRON: MSO_SHAPE.CHEVRON,
+    ShapeType.STAR_5_POINT: MSO_SHAPE.STAR_5_POINT,
+    ShapeType.STAR_6_POINT: MSO_SHAPE.STAR_6_POINT,
+    ShapeType.CALLOUT_RECTANGULAR: MSO_SHAPE.RECTANGULAR_CALLOUT,
+    ShapeType.CALLOUT_ROUNDED_RECTANGULAR: MSO_SHAPE.ROUNDED_RECTANGULAR_CALLOUT,
+    ShapeType.CALLOUT_OVAL: MSO_SHAPE.OVAL_CALLOUT,
+    ShapeType.CALLOUT_CLOUD: MSO_SHAPE.CLOUD_CALLOUT,
+    ShapeType.CURVED_RIGHT_ARROW: MSO_SHAPE.CURVED_RIGHT_ARROW,
+    ShapeType.CURVED_LEFT_ARROW: MSO_SHAPE.CURVED_LEFT_ARROW,
+    ShapeType.CURVED_UP_ARROW: MSO_SHAPE.CURVED_UP_ARROW,
+    ShapeType.CURVED_DOWN_ARROW: MSO_SHAPE.CURVED_DOWN_ARROW,
+    ShapeType.BLOCK_ARC: MSO_SHAPE.BLOCK_ARC,
+    ShapeType.DONUT: MSO_SHAPE.DONUT,
+    ShapeType.HEART: MSO_SHAPE.HEART,
+    ShapeType.LIGHTNING_BOLT: MSO_SHAPE.LIGHTNING_BOLT,
+    ShapeType.SUN: MSO_SHAPE.SUN,
+    ShapeType.MOON: MSO_SHAPE.MOON,
+    ShapeType.CLOUD: MSO_SHAPE.CLOUD,
+    ShapeType.FLOWCHART_PROCESS: MSO_SHAPE.FLOWCHART_PROCESS,
+    ShapeType.FLOWCHART_DECISION: MSO_SHAPE.FLOWCHART_DECISION,
+    ShapeType.FLOWCHART_TERMINATOR: MSO_SHAPE.FLOWCHART_TERMINATOR,
+    ShapeType.FLOWCHART_DATA: MSO_SHAPE.FLOWCHART_DATA,
+    ShapeType.FLOWCHART_CONNECTOR: MSO_SHAPE.FLOWCHART_CONNECTOR,
+}
+
+LINE_DASH_MAP: dict[str, int] = {
+    "solid": MSO_LINE_DASH_STYLE.SOLID,
+    "dash": MSO_LINE_DASH_STYLE.DASH,
+    "dot": MSO_LINE_DASH_STYLE.ROUND_DOT,
+    "dash_dot": MSO_LINE_DASH_STYLE.DASH_DOT,
 }
 
 
@@ -149,6 +199,19 @@ def _find_placeholder(
     return None
 
 
+def _get_all_layouts(prs: Presentation) -> list["SlideLayout"]:
+    """
+    全スライドマスターから全レイアウトを取得
+
+    prs.slide_layouts は最初のスライドマスターのレイアウトのみを返すため、
+    複数のスライドマスターがある場合はこの関数を使用する
+    """
+    layouts = []
+    for master in prs.slide_masters:
+        layouts.extend(master.slide_layouts)
+    return layouts
+
+
 def _find_layout_by_name_or_index(
     prs: Presentation,
     name: str | None = None,
@@ -158,35 +221,39 @@ def _find_layout_by_name_or_index(
     """
     レイアウトを名前またはインデックスで検索
     """
+    # 全スライドマスターから全レイアウトを取得
+    all_layouts = _get_all_layouts(prs)
+
     # インデックス指定の場合
     if index is not None:
-        if 0 <= index < len(prs.slide_layouts):
-            return prs.slide_layouts[index]
-        raise ValueError(f"Layout index {index} out of range (0-{len(prs.slide_layouts)-1})")
-    
+        if 0 <= index < len(all_layouts):
+            return all_layouts[index]
+        raise ValueError(f"Layout index {index} out of range (0-{len(all_layouts)-1})")
+
     # 名前指定の場合
     if name is not None:
         # エイリアス検索
         if meta and meta.custom_config and meta.custom_config.layout_aliases:
             if name in meta.custom_config.layout_aliases:
                 alias_index = meta.custom_config.layout_aliases[name]
-                return prs.slide_layouts[alias_index]
-        
+                if 0 <= alias_index < len(all_layouts):
+                    return all_layouts[alias_index]
+
         # 名前で検索（完全一致 → 部分一致）
-        for layout in prs.slide_layouts:
+        for layout in all_layouts:
             if layout.name == name:
                 return layout
-        
+
         # 部分一致
         name_lower = name.lower()
-        for layout in prs.slide_layouts:
+        for layout in all_layouts:
             if name_lower in (layout.name or "").lower():
                 return layout
-        
+
         raise ValueError(f"Layout not found: {name}")
-    
+
     # デフォルトは最初のレイアウト
-    return prs.slide_layouts[0]
+    return all_layouts[0] if all_layouts else prs.slide_layouts[0]
 
 
 # =============================================================================
@@ -367,11 +434,11 @@ def _insert_image(
 ) -> None:
     """画像コンテンツを挿入"""
     image_path = Path(content.source)
-    
+
     if not image_path.exists():
         # URL の場合は後で対応（ここではスキップ）
         return
-    
+
     slide.shapes.add_picture(
         str(image_path),
         placeholder.left,
@@ -379,6 +446,141 @@ def _insert_image(
         placeholder.width,
         placeholder.height,
     )
+
+
+def _apply_shape_style(shape, style: ShapeStyle | None) -> None:
+    """図形にスタイルを適用"""
+    if style is None:
+        return
+
+    # 塗りつぶし色
+    if style.fill_color:
+        shape.fill.solid()
+        shape.fill.fore_color.rgb = _parse_rgb_color(style.fill_color)
+
+    # 線の色
+    if style.line_color:
+        shape.line.color.rgb = _parse_rgb_color(style.line_color)
+
+    # 線の太さ
+    if style.line_width:
+        shape.line.width = Pt(style.line_width)
+
+    # 線のスタイル
+    if style.line_dash and style.line_dash in LINE_DASH_MAP:
+        shape.line.dash_style = LINE_DASH_MAP[style.line_dash]
+
+
+def _add_shape(
+    slide: "Slide",
+    content: ShapeContent,
+) -> "Shape":
+    """図形をスライドに追加"""
+    shape_type = SHAPE_TYPE_MAP.get(content.shape_type, MSO_SHAPE.RECTANGLE)
+
+    shape = slide.shapes.add_shape(
+        shape_type,
+        Inches(content.left),
+        Inches(content.top),
+        Inches(content.width),
+        Inches(content.height),
+    )
+
+    # スタイルを適用
+    _apply_shape_style(shape, content.style)
+
+    # 回転
+    if content.rotation:
+        shape.rotation = content.rotation
+
+    # テキストを追加
+    if content.text and shape.has_text_frame:
+        text_frame = shape.text_frame
+        text_frame.clear()
+        p = text_frame.paragraphs[0]
+        run = p.add_run()
+        run.text = content.text
+        _apply_text_style(run, content.text_style)
+
+    return shape
+
+
+def _add_textbox(
+    slide: "Slide",
+    content: TextBoxContent,
+) -> "Shape":
+    """テキストボックスをスライドに追加"""
+    textbox = slide.shapes.add_textbox(
+        Inches(content.left),
+        Inches(content.top),
+        Inches(content.width),
+        Inches(content.height),
+    )
+
+    text_frame = textbox.text_frame
+
+    # 段落が指定されている場合
+    if content.paragraphs:
+        text_frame.clear()
+        for i, para_content in enumerate(content.paragraphs):
+            if i == 0:
+                p = text_frame.paragraphs[0]
+            else:
+                p = text_frame.add_paragraph()
+            run = p.add_run()
+            run.text = para_content.text
+            _apply_text_style(run, para_content.style)
+            if para_content.alignment and para_content.alignment in ALIGNMENT_MAP:
+                p.alignment = ALIGNMENT_MAP[para_content.alignment]
+    else:
+        # 単純なテキスト
+        text_frame.clear()
+        p = text_frame.paragraphs[0]
+        run = p.add_run()
+        run.text = content.text
+        _apply_text_style(run, content.style)
+
+    # 背景色
+    if content.fill_color:
+        textbox.fill.solid()
+        textbox.fill.fore_color.rgb = _parse_rgb_color(content.fill_color)
+
+    # 枠線色
+    if content.line_color:
+        textbox.line.color.rgb = _parse_rgb_color(content.line_color)
+
+    return textbox
+
+
+def _add_connector(
+    slide: "Slide",
+    content: ConnectorContent,
+) -> "Shape":
+    """コネクタ（接続線）をスライドに追加"""
+    # 始点と終点から位置とサイズを計算
+    start_x = Inches(content.start_x)
+    start_y = Inches(content.start_y)
+    end_x = Inches(content.end_x)
+    end_y = Inches(content.end_y)
+
+    # 直線コネクタを追加
+    connector = slide.shapes.add_connector(
+        MSO_CONNECTOR.STRAIGHT,
+        start_x,
+        start_y,
+        end_x,
+        end_y,
+    )
+
+    # 線の色
+    if content.line_color:
+        connector.line.color.rgb = _parse_rgb_color(content.line_color)
+
+    # 線の太さ
+    if content.line_width:
+        connector.line.width = Pt(content.line_width)
+
+    return connector
 
 
 # =============================================================================
@@ -415,24 +617,20 @@ class PptxGenerator:
     
     def _remove_existing_slides(self) -> None:
         """テンプレートの既存スライドを削除"""
-        # スライドを逆順で削除（インデックスずれ防止）
-        slide_ids = [slide.slide_id for slide in self.prs.slides]
-        for slide_id in slide_ids:
-            rId = self.prs.part.get_rId(self.prs.slides.get(slide_id).part)
-            self.prs.part.drop_rel(rId)
-            del self.prs.slides._sldIdLst[self.prs.slides._sldIdLst.index(
-                self.prs.slides._sldIdLst.sldId_lst[
-                    [s.slide_id for s in self.prs.slides].index(slide_id)
-                ]
-            )]
+        # python-pptxには公式のスライド削除機能がないため、
+        # 内部XMLを直接操作する
+        xml_slides = self.prs.slides._sldIdLst
+        slides_to_remove = list(xml_slides)
+        for slide in slides_to_remove:
+            xml_slides.remove(slide)
     
     def add_slide(self, definition: SlideDefinition) -> "Slide":
         """
         スライドを追加
-        
+
         Args:
             definition: スライド定義
-        
+
         Returns:
             追加されたスライド
         """
@@ -443,20 +641,40 @@ class PptxGenerator:
             index=definition.layout_index,
             meta=self.template_meta,
         )
-        
+
         # スライドを追加
         slide = self.prs.slides.add_slide(layout)
-        
+
         # コンテンツを挿入
         for placeholder_key, content in definition.contents.items():
             self._insert_content(slide, placeholder_key, content)
-        
+
+        # 図形を追加
+        for shape_content in definition.shapes:
+            self._add_shape_to_slide(slide, shape_content)
+
         # スピーカーノート
         if definition.speaker_notes:
             notes_slide = slide.notes_slide
             notes_slide.notes_text_frame.text = definition.speaker_notes
-        
+
         return slide
+
+    def _add_shape_to_slide(
+        self,
+        slide: "Slide",
+        content: ShapeContent | TextBoxContent | ConnectorContent,
+    ) -> None:
+        """スライドに図形を追加"""
+        try:
+            if isinstance(content, ShapeContent):
+                _add_shape(slide, content)
+            elif isinstance(content, TextBoxContent):
+                _add_textbox(slide, content)
+            elif isinstance(content, ConnectorContent):
+                _add_connector(slide, content)
+        except Exception as e:
+            self.warnings.append(f"Failed to add shape: {str(e)}")
     
     def _insert_content(
         self,
@@ -599,18 +817,18 @@ def generate_from_ai_json(
 ) -> tuple[Path, list[str]]:
     """
     AIからのJSON出力を直接処理してPPTXを生成
-    
+
     Args:
         template_path: テンプレートPPTXのパス
         ai_output: AIからのJSON出力（slides配列を含む）
         output_path: 出力パス
         template_meta: テンプレートメタデータ
-    
+
     Returns:
         (出力パス, 警告リスト)
     """
     slides_data = ai_output.get("slides", [])
-    
+
     slides = []
     for slide_data in slides_data:
         # AIからの出力をSlideDefinitionに変換
@@ -618,11 +836,37 @@ def generate_from_ai_json(
             layout_name=slide_data.get("layoutName") or slide_data.get("layout_name"),
             layout_index=slide_data.get("layoutIndex") or slide_data.get("layout_index"),
             contents=_normalize_contents(slide_data.get("content", {})),
+            shapes=_normalize_shapes(slide_data.get("shapes", [])),
             speaker_notes=slide_data.get("speakerNotes") or slide_data.get("speaker_notes"),
         )
         slides.append(slide_def)
-    
+
     return generate_pptx(template_path, slides, output_path, template_meta)
+
+
+def _normalize_shapes(
+    shapes_data: list[dict[str, Any]],
+) -> list[ShapeContent | TextBoxContent | ConnectorContent]:
+    """
+    AIからの図形データを正規化
+    """
+    normalized = []
+
+    for shape_data in shapes_data:
+        shape_type = shape_data.get("type", "shape")
+
+        try:
+            if shape_type == "shape":
+                normalized.append(ShapeContent(**shape_data))
+            elif shape_type == "textbox":
+                normalized.append(TextBoxContent(**shape_data))
+            elif shape_type == "connector":
+                normalized.append(ConnectorContent(**shape_data))
+        except Exception:
+            # パース失敗時はスキップ
+            continue
+
+    return normalized
 
 
 def _normalize_contents(

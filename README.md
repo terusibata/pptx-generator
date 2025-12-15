@@ -5,7 +5,10 @@ AIによるPowerPoint生成のためのバックエンドAPI。会社のスラ�
 ## 特徴
 
 - **テンプレートベース生成**: スライドマスター・テーマを完全に継承
+- **複数スライドマスター対応**: 複数のスライドマスターを持つテンプレートにも対応
 - **柔軟なコンテンツ指定**: 単純テキスト、箇条書き、テーブル、チャートに対応
+- **図形サポート**: 矢印、四角形、円、フローチャート等の図形を自由に配置可能
+- **テキストボックス**: プレースホルダー外に自由にテキストを配置
 - **セッション管理**: 修正依頼に対応した会話継続機能
 - **プレビュー生成**: PDF・サムネイル画像の自動生成
 
@@ -238,6 +241,148 @@ curl -X POST http://localhost:8000/api/generate \
   "series": [
     {"name": "2023年", "values": [100, 120, 110, 130]},
     {"name": "2024年", "values": [120, 140, 150, 160]}
+  ]
+}
+```
+
+## 図形サポート
+
+プレースホルダー以外に、スライドに自由に図形を追加できます。
+`shapes` 配列でスライドに図形を追加します。
+
+### 基本的な図形
+
+```json
+{
+  "layoutName": "白紙",
+  "content": {},
+  "shapes": [
+    {
+      "type": "shape",
+      "shape_type": "rectangle",
+      "left": 1.0,
+      "top": 1.0,
+      "width": 3.0,
+      "height": 1.5,
+      "text": "四角形内のテキスト",
+      "style": {
+        "fill_color": "4472C4",
+        "line_color": "2F5597",
+        "line_width": 2.0
+      }
+    }
+  ]
+}
+```
+
+### 利用可能な図形タイプ
+
+| カテゴリ | 図形タイプ |
+|---------|-----------|
+| 基本図形 | `rectangle`, `rounded_rectangle`, `oval`, `triangle`, `right_triangle`, `diamond`, `pentagon`, `hexagon` |
+| 矢印 | `arrow_right`, `arrow_left`, `arrow_up`, `arrow_down`, `curved_right_arrow`, `curved_left_arrow`, `curved_up_arrow`, `curved_down_arrow` |
+| 吹き出し | `callout_rectangular`, `callout_rounded_rectangular`, `callout_oval`, `callout_cloud` |
+| 記号 | `star_5_point`, `star_6_point`, `heart`, `lightning_bolt`, `sun`, `moon`, `cloud` |
+| フローチャート | `flowchart_process`, `flowchart_decision`, `flowchart_terminator`, `flowchart_data`, `flowchart_connector` |
+| その他 | `chevron`, `block_arc`, `donut` |
+
+### テキストボックス
+
+プレースホルダー外にテキストを配置する場合：
+
+```json
+{
+  "type": "textbox",
+  "left": 5.0,
+  "top": 2.0,
+  "width": 4.0,
+  "height": 1.0,
+  "text": "注釈テキスト",
+  "style": {
+    "font_size": 12,
+    "color": "666666"
+  },
+  "fill_color": "FFFFCC"
+}
+```
+
+### 接続線（コネクタ）
+
+```json
+{
+  "type": "connector",
+  "start_x": 2.0,
+  "start_y": 2.0,
+  "end_x": 5.0,
+  "end_y": 3.0,
+  "line_color": "000000",
+  "line_width": 1.5
+}
+```
+
+### 図形スタイルオプション
+
+| プロパティ | 説明 | 例 |
+|-----------|------|-----|
+| `fill_color` | 塗りつぶし色（RGB hex） | `"FF0000"` |
+| `line_color` | 線の色（RGB hex） | `"000000"` |
+| `line_width` | 線の太さ（pt） | `2.0` |
+| `line_dash` | 線のスタイル | `"solid"`, `"dash"`, `"dot"`, `"dash_dot"` |
+| `rotation` | 回転角度（度） | `45` |
+
+### 複合例：フローチャート
+
+```json
+{
+  "layoutName": "白紙",
+  "content": {},
+  "shapes": [
+    {
+      "type": "shape",
+      "shape_type": "flowchart_terminator",
+      "left": 3.5,
+      "top": 0.5,
+      "width": 2.5,
+      "height": 0.8,
+      "text": "開始",
+      "style": {"fill_color": "C6EFCE"}
+    },
+    {
+      "type": "shape",
+      "shape_type": "flowchart_process",
+      "left": 3.5,
+      "top": 1.8,
+      "width": 2.5,
+      "height": 0.8,
+      "text": "処理A",
+      "style": {"fill_color": "BDD7EE"}
+    },
+    {
+      "type": "shape",
+      "shape_type": "flowchart_decision",
+      "left": 3.5,
+      "top": 3.1,
+      "width": 2.5,
+      "height": 1.2,
+      "text": "判断",
+      "style": {"fill_color": "FFE699"}
+    },
+    {
+      "type": "connector",
+      "start_x": 4.75,
+      "start_y": 1.3,
+      "end_x": 4.75,
+      "end_y": 1.8,
+      "line_color": "000000"
+    },
+    {
+      "type": "connector",
+      "start_x": 4.75,
+      "start_y": 2.6,
+      "end_x": 4.75,
+      "end_y": 3.1,
+      "line_color": "000000"
+    }
   ]
 }
 ```

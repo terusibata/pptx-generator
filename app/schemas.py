@@ -34,6 +34,47 @@ class ContentType(str, Enum):
     IMAGE = "image"
     TABLE = "table"
     CHART = "chart"
+    SHAPE = "shape"
+    TEXTBOX = "textbox"
+
+
+class ShapeType(str, Enum):
+    """図形の種類"""
+    RECTANGLE = "rectangle"
+    ROUNDED_RECTANGLE = "rounded_rectangle"
+    OVAL = "oval"
+    TRIANGLE = "triangle"
+    RIGHT_TRIANGLE = "right_triangle"
+    DIAMOND = "diamond"
+    PENTAGON = "pentagon"
+    HEXAGON = "hexagon"
+    ARROW_RIGHT = "arrow_right"
+    ARROW_LEFT = "arrow_left"
+    ARROW_UP = "arrow_up"
+    ARROW_DOWN = "arrow_down"
+    CHEVRON = "chevron"
+    STAR_5_POINT = "star_5_point"
+    STAR_6_POINT = "star_6_point"
+    CALLOUT_RECTANGULAR = "callout_rectangular"
+    CALLOUT_ROUNDED_RECTANGULAR = "callout_rounded_rectangular"
+    CALLOUT_OVAL = "callout_oval"
+    CALLOUT_CLOUD = "callout_cloud"
+    CURVED_RIGHT_ARROW = "curved_right_arrow"
+    CURVED_LEFT_ARROW = "curved_left_arrow"
+    CURVED_UP_ARROW = "curved_up_arrow"
+    CURVED_DOWN_ARROW = "curved_down_arrow"
+    BLOCK_ARC = "block_arc"
+    DONUT = "donut"
+    HEART = "heart"
+    LIGHTNING_BOLT = "lightning_bolt"
+    SUN = "sun"
+    MOON = "moon"
+    CLOUD = "cloud"
+    FLOWCHART_PROCESS = "flowchart_process"
+    FLOWCHART_DECISION = "flowchart_decision"
+    FLOWCHART_TERMINATOR = "flowchart_terminator"
+    FLOWCHART_DATA = "flowchart_data"
+    FLOWCHART_CONNECTOR = "flowchart_connector"
 
 
 class ChartType(str, Enum):
@@ -188,8 +229,59 @@ class ChartContent(BaseModel):
     show_legend: bool = Field(True, description="凡例を表示するか")
 
 
+class ShapeStyle(BaseModel):
+    """図形のスタイル設定"""
+    fill_color: str | None = Field(None, description="塗りつぶし色（RGB hex、例: 'FF0000'）")
+    fill_transparency: float = Field(0, ge=0, le=1, description="塗りつぶしの透明度（0-1）")
+    line_color: str | None = Field(None, description="線の色（RGB hex）")
+    line_width: float | None = Field(None, description="線の太さ（pt）")
+    line_dash: str | None = Field(None, description="線のスタイル（solid/dash/dot/dash_dot）")
+    shadow: bool = Field(False, description="影をつけるか")
+
+
+class ShapeContent(BaseModel):
+    """図形コンテンツ"""
+    type: ContentType = ContentType.SHAPE
+    shape_type: ShapeType = Field(..., description="図形の種類")
+    left: float = Field(..., description="左位置（インチ）")
+    top: float = Field(..., description="上位置（インチ）")
+    width: float = Field(..., description="幅（インチ）")
+    height: float = Field(..., description="高さ（インチ）")
+    text: str | None = Field(None, description="図形内のテキスト")
+    text_style: TextStyle | None = Field(None, description="テキストスタイル")
+    style: ShapeStyle | None = Field(None, description="図形スタイル")
+    rotation: float = Field(0, description="回転角度（度）")
+
+
+class TextBoxContent(BaseModel):
+    """テキストボックスコンテンツ"""
+    type: ContentType = ContentType.TEXTBOX
+    left: float = Field(..., description="左位置（インチ）")
+    top: float = Field(..., description="上位置（インチ）")
+    width: float = Field(..., description="幅（インチ）")
+    height: float = Field(..., description="高さ（インチ）")
+    text: str = Field(..., description="テキスト内容")
+    paragraphs: list[ParagraphContent] | None = Field(None, description="段落リスト（高度な設定用）")
+    style: TextStyle | None = Field(None, description="テキストスタイル")
+    fill_color: str | None = Field(None, description="背景色（RGB hex）")
+    line_color: str | None = Field(None, description="枠線の色（RGB hex）")
+
+
+class ConnectorContent(BaseModel):
+    """コネクタ（接続線）コンテンツ"""
+    type: str = "connector"
+    start_x: float = Field(..., description="始点X位置（インチ）")
+    start_y: float = Field(..., description="始点Y位置（インチ）")
+    end_x: float = Field(..., description="終点X位置（インチ）")
+    end_y: float = Field(..., description="終点Y位置（インチ）")
+    line_color: str | None = Field(None, description="線の色（RGB hex）")
+    line_width: float | None = Field(None, description="線の太さ（pt）")
+    arrow_start: bool = Field(False, description="始点に矢印")
+    arrow_end: bool = Field(True, description="終点に矢印")
+
+
 # コンテンツの Union 型
-SlideContent = TextContent | BulletContent | ImageContent | TableContent | ChartContent
+SlideContent = TextContent | BulletContent | ImageContent | TableContent | ChartContent | ShapeContent | TextBoxContent
 
 
 class PlaceholderContent(BaseModel):
@@ -207,6 +299,10 @@ class SlideDefinition(BaseModel):
     contents: dict[str, SlideContent | str | list[str]] = Field(
         default_factory=dict,
         description="プレースホルダー名 → コンテンツのマッピング"
+    )
+    shapes: list[ShapeContent | TextBoxContent | ConnectorContent] = Field(
+        default_factory=list,
+        description="追加する図形リスト"
     )
     speaker_notes: str | None = Field(None, description="スピーカーノート")
 

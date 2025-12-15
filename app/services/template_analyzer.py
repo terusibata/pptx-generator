@@ -112,33 +112,39 @@ def analyze_template(
 ) -> TemplateMeta:
     """
     テンプレートPPTXを解析してメタデータを生成
-    
+
     Args:
         pptx_path: PPTXファイルのパス
         template_id: テンプレートID（指定しない場合はハッシュから生成）
         custom_config: カスタム設定
-    
+
     Returns:
         TemplateMeta: テンプレートのメタデータ
     """
     pptx_path = Path(pptx_path)
-    
+
     if not pptx_path.exists():
         raise FileNotFoundError(f"Template file not found: {pptx_path}")
-    
+
     # テンプレートIDを生成（指定がなければファイルハッシュから）
     if template_id is None:
         file_hash = hashlib.md5(pptx_path.read_bytes()).hexdigest()[:8]
         template_id = f"{pptx_path.stem}_{file_hash}"
-    
+
     prs = Presentation(pptx_path)
-    
-    # レイアウト情報を抽出
+
+    # レイアウト情報を抽出（全スライドマスターから）
+    # prs.slide_layouts は最初のスライドマスターのみを返すため、
+    # 全てのスライドマスターをイテレートして全レイアウトを取得する
     layouts: list[LayoutMeta] = []
-    for idx, layout in enumerate(prs.slide_layouts):
-        layout_meta = _extract_layout_meta(layout, idx)
-        layouts.append(layout_meta)
-    
+    global_index = 0
+
+    for master in prs.slide_masters:
+        for layout in master.slide_layouts:
+            layout_meta = _extract_layout_meta(layout, global_index)
+            layouts.append(layout_meta)
+            global_index += 1
+
     return TemplateMeta(
         id=template_id,
         name=pptx_path.stem,
