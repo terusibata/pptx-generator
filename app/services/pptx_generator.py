@@ -619,10 +619,18 @@ class PptxGenerator:
         """テンプレートの既存スライドを削除"""
         # python-pptxには公式のスライド削除機能がないため、
         # 内部XMLを直接操作する
-        xml_slides = self.prs.slides._sldIdLst
-        slides_to_remove = list(xml_slides)
-        for slide in slides_to_remove:
-            xml_slides.remove(slide)
+        # 参考: https://github.com/scanny/python-pptx/issues/67
+
+        # スライドがない場合は何もしない
+        if len(self.prs.slides) == 0:
+            return
+
+        # 逆順でスライドを削除（インデックスずれ防止）
+        for i in range(len(self.prs.slides._sldIdLst) - 1, -1, -1):
+            slide_id = self.prs.slides._sldIdLst[i]
+            rId = slide_id.rId
+            self.prs.part.drop_rel(rId)
+            del self.prs.slides._sldIdLst[i]
     
     def add_slide(self, definition: SlideDefinition) -> "Slide":
         """
