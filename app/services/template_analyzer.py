@@ -133,17 +133,26 @@ def analyze_template(
 
     prs = Presentation(pptx_path)
 
+    # デバッグ: スライドマスター数を出力
+    print(f"[DEBUG] Template: {pptx_path}")
+    print(f"[DEBUG] Number of slide masters: {len(prs.slide_masters)}")
+
     # レイアウト情報を抽出（全スライドマスターから）
     # prs.slide_layouts は最初のスライドマスターのみを返すため、
     # 全てのスライドマスターをイテレートして全レイアウトを取得する
     layouts: list[LayoutMeta] = []
     global_index = 0
 
-    for master in prs.slide_masters:
-        for layout in master.slide_layouts:
+    for master_idx, master in enumerate(prs.slide_masters):
+        master_layouts = list(master.slide_layouts)
+        print(f"[DEBUG] Master {master_idx}: {len(master_layouts)} layouts")
+        for layout in master_layouts:
+            print(f"[DEBUG]   Layout [{global_index}]: {layout.name}")
             layout_meta = _extract_layout_meta(layout, global_index)
             layouts.append(layout_meta)
             global_index += 1
+
+    print(f"[DEBUG] Total layouts found: {len(layouts)}")
 
     return TemplateMeta(
         id=template_id,
